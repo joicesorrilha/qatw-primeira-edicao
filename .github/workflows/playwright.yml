@@ -10,65 +10,20 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    # Criamos os serviços de suporte idênticos ao teu compose para as APIs funcionarem
-    services:
-      db:
-        image: postgres:13
-        env:
-          POSTGRES_USER: dba
-          POSTGRES_PASSWORD: dba
-          POSTGRES_DB: UserDB
-          POSTGRES_ROOT_PASSWORD: dba
-          TZ: America/Sao_Paulo
-        ports:
-          - 5432:5432
-        # Garante que o banco está pronto antes de avançar
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:6.2
-        env:
-          TZ: America/Sao_Paulo
-        ports:
-          - 6379:6379
-
-      # As APIs do teu professor que dão suporte ao frontend e testes
-      paybank-ms-auth:
-        image: papitodev/paybank-ms-auth
-        env:
-          DATABASE_URL: postgresql://dba:dba@db:5432/UserDB
-          REDIS_HOST: redis
-          REDIS_PORT: 6379
-          TZ: America/Sao_Paulo
-        ports:
-          - 3333:3333
-
-      paybank-ms-email:
-        image: papitodev/paybank-ms-email
-        env:
-          REDIS_HOST: redis
-          REDIS_PORT: 6379
-          MAILTRAP_ACCOUNT_ID: 4763817
-          MAILTRAP_TOKEN: 553cea2cb381d63a90bbe79de1a4fd7c
-          MAILTRAP_INBOX_ID: 4763817
-          TZ: America/Sao_Paulo
-
-      paybank-mf-auth:
-        image: papitodev/paybank-mf-auth
-        env:
-          TZ: America/Sao_Paulo
-        ports:
-          - 3000:3000
-
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      # O GitHub Actions instala o Java e Node diretamente na máquina do Runner para ser super rápido
+      # 1. Sobe toda a tua infraestrutura usando o teu próprio docker-compose.yml
+      - name: Subir Infraestrutura (Docker Compose)
+        run: |
+          docker compose up -d db redis paybank-ms-auth paybank-ms-email paybank-mf-auth
+          
+      # 2. Aguarda alguns segundos para o banco e as APIs estarem totalmente online
+      - name: Aguardar Inicialização dos Serviços
+        run: sleep 15
+
+      # 3. Configura o ambiente de testes na máquina do GitHub Actions
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
@@ -81,6 +36,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      # 4. Instala e executa os testes apontando para o container do frontend (porta 3000)
       - name: Instalar Dependências do Projeto
         run: npm ci
 
@@ -88,12 +44,11 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Executar Testes E2E
-        # Aponta o teste para a aplicação local que subiu nos services (porta 3000)
         env:
           BASE_URL: http://localhost:3000
         run: npx playwright test
 
-      # Guarda os resultados gerados na nuvem para poderes consultar se algo falhar
+      # 5. Guarda os resultados do Allure
       - name: Guardar Resultados do Allure
         if: always()
         uses: actions/upload-artifact@v4
