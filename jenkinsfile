@@ -1,21 +1,30 @@
 pipeline {
-    agent {
-        docker {
-            image 'mcr.microsoft.com/playwright:v1.61.0-noble'
-            args '--network qatw-primeira-edicao_skynet'
-        }
-    }
+    agent none // Permite que cada estágio escolha onde vai rodar
 
     stages {
-        stage('Node.js Deps') {
+        stage('Testes E2E') {
+            agent {
+                docker {
+                    image 'mcr.microsoft.com/playwright:v1.61.0-noble'
+                    args '--network qatw-primeira-edicao_skynet'
+                }
+            }
             steps {
                 sh 'npm install'
+                // O comando de teste roda dentro do container do Playwright
+                sh 'npx playwright test'
             }
         }
-        stage('Testes E2E') {
+
+        stage('Relatório Allure') {
+            agent any // Roda direto no Jenkins, aproveitando o Java 21 instalado!
             steps {
-                sh 'npx playwright test'
-                allure commandline: 'allure', includeProperties: false, jdk: '', resultPolicy: 'LEAVE_AS_IS', results: [[path: 'allure-results']]
+                // O plugin do Allure gera o gráfico usando a infraestrutura do Jenkins
+                allure commandline: 'allure', 
+                       includeProperties: false, 
+                       jdk: '', 
+                       resultPolicy: 'LEAVE_AS_IS', 
+                       results: [[path: 'allure-results']]
             }
         }
     }
