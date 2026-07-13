@@ -36,10 +36,12 @@ jobs:
         run: |
           docker compose up -d db redis paybank-ms-auth paybank-ms-email paybank-mf-auth
 
-      # 4. Redireciona o nome 'paybank-mf-auth' para o localhost interno do Runner (para rodar direto na máquina do Runner (fora do Docker))
-      - name: Mapear Host do Contêiner para Localhost
+      # 4. Mapeia todos os nomes de rede do Docker para o localhost do Runner (para rodar fora do docker)
+      - name: Mapear Hosts dos Contêineres para Localhost
         run: |
           sudo echo "127.0.0.1 paybank-mf-auth" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 paybank-redis" | sudo tee -a /etc/hosts
+          sudo echo "127.0.0.1 paybank-db" | sudo tee -a /etc/hosts
 
       # 5. Aguarda a API estar totalmente online antes de prosseguir
       - name: Aguardar APIs estarem 100% prontas
