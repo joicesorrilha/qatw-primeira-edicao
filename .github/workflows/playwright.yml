@@ -14,15 +14,25 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Subir Infraestrutura (Docker Compose)
+      # Passo 1: Sobe PRIMEIRO os alicerces (Banco e Redis) para dar tempo de eles iniciarem
+      - name: Subir Base da Infraestrutura (DB e Redis)
         run: |
-          docker compose up -d db redis paybank-ms-auth paybank-ms-email paybank-mf-auth
-          
-      # 2. Dá um tempo extra para o PostgreSQL e as APIs estarem 100% online
-      - name: Aguardar Inicialização dos Serviços
-        run: sleep 20
+          docker compose up -d db redis
 
-      # 3. Configura o ambiente de testes na máquina do GitHub Actions
+      # Passo 2: Aguarda 15 segundos para o Redis e o Postgres estarem saudáveis na rede
+      - name: Aguardar Base Estabilizar
+        run: sleep 15
+
+      # Passo 3: Agora sim, com o Redis online, subimos as APIs e o Frontend com segurança
+      - name: Subir Aplicação (APIs e Frontend)
+        run: |
+          docker compose up -d paybank-ms-auth paybank-ms-email paybank-mf-auth
+
+      # Passo 4: Mais 10 segundos apenas para as APIs completarem o handshake inicial
+      - name: Aguardar Aplicação Iniciar
+        run: sleep 10
+
+      # Passo 5: Configura o ambiente de testes na máquina do GitHub Actions
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
@@ -35,7 +45,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      # 4. Instala dependências e executa os testes localmente
+      # Passo 6: Instala dependências e executa os testes do Playwright
       - name: Instalar Dependências do Projeto
         run: npm ci
 
@@ -47,7 +57,7 @@ jobs:
           BASE_URL: http://localhost:3000
         run: npx playwright test
 
-      # 5. Guarda os resultados do Allure
+      # Passo 7: Guarda os resultados do Allure
       - name: Guardar Resultados do Allure
         if: always()
         uses: actions/upload-artifact@v4
