@@ -14,14 +14,15 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      # 1. Sobe toda a tua infraestrutura usando o teu próprio docker-compose.yml
-      - name: Subir Infraestrutura (Docker Compose)
+      # 1. Sobe a infraestrutura especificando os serviços (Deixando o Jenkins de fora)
+      # Isso evita o build pesado e demorado do Jenkins na nuvem.
+      name: Subir Infraestrutura (Docker Compose)
         run: |
           docker compose up -d db redis paybank-ms-auth paybank-ms-email paybank-mf-auth
           
-      # 2. Aguarda alguns segundos para o banco e as APIs estarem totalmente online
+      # 2. Dá um tempo extra para o PostgreSQL e as APIs estarem 100% online
       - name: Aguardar Inicialização dos Serviços
-        run: sleep 15
+        run: sleep 20
 
       # 3. Configura o ambiente de testes na máquina do GitHub Actions
       - name: Configurar Node.js
@@ -36,7 +37,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      # 4. Instala e executa os testes apontando para o container do frontend (porta 3000)
+      # 4. Instala dependências e executa os testes localmente
       - name: Instalar Dependências do Projeto
         run: npm ci
 
