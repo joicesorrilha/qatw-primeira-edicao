@@ -14,25 +14,7 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      # Passo 1: Sobe PRIMEIRO os alicerces (Banco e Redis) para dar tempo de eles iniciarem
-      - name: Subir Base da Infraestrutura (DB e Redis)
-        run: |
-          docker compose up -d db redis
-
-      # Passo 2: Aguarda 15 segundos para o Redis e o Postgres estarem saudáveis na rede
-      - name: Aguardar Base Estabilizar
-        run: sleep 15
-
-      # Passo 3: Agora sim, com o Redis online, subimos as APIs e o Frontend com segurança
-      - name: Subir Aplicação (APIs e Frontend)
-        run: |
-          docker compose up -d paybank-ms-auth paybank-ms-email paybank-mf-auth
-
-      # Passo 4: Mais 10 segundos apenas para as APIs completarem o handshake inicial
-      - name: Aguardar Aplicação Iniciar
-        run: sleep 10
-
-      # Passo 5: Configura o ambiente de testes na máquina do GitHub Actions
+      # 1. Configura os ambientes de execução
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
@@ -45,19 +27,38 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      # Passo 6: Instala dependências e executa os testes do Playwright
+      # 2. Instala as dependências do projeto
       - name: Instalar Dependências do Projeto
         run: npm ci
 
+      # 3. Sobe toda a infraestrutura do Docker Compose (Exceto o Jenkins)
+      - name: Subir Infraestrutura (Docker Compose)
+        run: |
+          docker compose up -d db redis paybank-ms-auth paybank-ms-email paybank-mf-auth
+
+      # 4. Redireciona o nome 'paybank-mf-auth' para o localhost interno do Runner (para rodar direto na máquina do Runner (fora do Docker))
+      - name: Mapear Host do Contêiner para Localhost
+        run: |
+          sudo echo "127.0.0.1 paybank-mf-auth" | sudo tee -a /etc/hosts
+
+      # 5. Aguarda a API estar totalmente online antes de prosseguir
+      - name: Aguardar APIs estarem 100% prontas
+        run: |
+          echo "Aguardando o serviço de autenticação iniciar na porta 3333..."
+          until curl -s http://localhost:3333 > /dev/null; do
+            echo "Aguardando inicialização..."
+            sleep 2
+          done
+          echo "Ambiente pronto!"
+
+      # 6. Instala navegadores e roda os testes
       - name: Instalar Navegadores do Playwright
         run: npx playwright install --with-deps
 
       - name: Executar Testes E2E
-        env:
-          BASE_URL: http://localhost:3000
         run: npx playwright test
 
-      # Passo 7: Guarda os resultados do Allure
+      # 7. Guarda os resultados do Allure
       - name: Guardar Resultados do Allure
         if: always()
         uses: actions/upload-artifact@v4
