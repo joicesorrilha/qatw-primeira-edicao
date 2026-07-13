@@ -1,4 +1,30 @@
 pipeline {
+    agent {
+        docker {
+            image 'joicesorrilha/playwright-nj-v1.61.0-noble'   // imagem docker que criei com node, java e playwright
+            args '--network qatw-primeira-edicao_skynet'
+        }
+    }
+
+    stages {
+        stage('Node.js Deps') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        stage('Testes E2E') {
+            steps {
+                sh 'npx playwright test'
+                allure commandline: 'allure', includeProperties: false, jdk: '', resultPolicy: 'LEAVE_AS_IS', results: [[path: 'allure-results']]
+            }
+        }
+    }
+}
+
+
+// Rodar o relatório Allure fora do docker, no Jenkins:
+
+/* pipeline {
     agent none // Permite que cada estágio escolha onde vai rodar
 
     stages {
@@ -28,4 +54,4 @@ pipeline {
             }
         }
     }
-}
+} */
