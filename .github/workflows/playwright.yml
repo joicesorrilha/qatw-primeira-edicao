@@ -48,7 +48,7 @@ jobs:
           - 3333:3333
 
       paybank-ms-email:
-        image: papitodev/papitodev/paybank-ms-email
+        image: papitodev/paybank-ms-email
         env:
           REDIS_HOST: redis
           REDIS_PORT: 6379
